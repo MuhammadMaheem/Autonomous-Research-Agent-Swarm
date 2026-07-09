@@ -11,7 +11,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT = resolve(__dirname, "../../screenshots");
+const outIdx = process.argv.indexOf("--out");
+const OUT = outIdx > -1
+  ? resolve(process.cwd(), process.argv[outIdx + 1])
+  : resolve(__dirname, "../../screenshots");
 mkdirSync(OUT, { recursive: true });
 
 const QUESTION =

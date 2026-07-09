@@ -10,12 +10,12 @@ import { useRunEvents } from "@/lib/use-run-events";
 import { API_URL, RunDetail } from "@/lib/types";
 
 const STAGES = [
-  ["planner", "Planner"],
-  ["scheduler", "Swarm"],
-  ["synthesizer", "Synthesizer"],
-  ["citation_checker", "Citation audit"],
-  ["critic", "Critic"],
-  ["finalizer", "Final report"],
+  ["planner", "Planner", "🗺️"],
+  ["scheduler", "Swarm", "🐝"],
+  ["synthesizer", "Synthesizer", "✍️"],
+  ["citation_checker", "Citation audit", "🔬"],
+  ["critic", "Critic", "♻️"],
+  ["finalizer", "Final report", "🏁"],
 ] as const;
 
 const STAGE_ALIAS: Record<string, string> = {
@@ -50,84 +50,112 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      {/* header */}
+      <div className="fade-up flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300">← new question</Link>
-          <h1 className="mt-1 truncate text-xl font-semibold text-zinc-100" title={run?.question}>
+          <Link href="/"
+                className="group inline-flex items-center gap-1.5 text-xs text-zinc-500 transition hover:text-indigo-300">
+            <span className="transition group-hover:-translate-x-0.5">←</span> new question
+          </Link>
+          <h1 className="mt-1.5 truncate text-xl font-semibold tracking-tight text-zinc-100" title={run?.question}>
             {run?.question ?? "…"}
           </h1>
         </div>
         <div className="flex items-center gap-2 text-xs">
           {coverage != null && (
-            <span className={`rounded-full px-3 py-1.5 font-semibold ${
-              coverage >= 0.75 ? "bg-emerald-950 text-emerald-300" :
-              coverage >= 0.5 ? "bg-amber-950 text-amber-300" : "bg-rose-950 text-rose-300"}`}>
+            <span className={`rounded-full px-3 py-1.5 font-semibold ring-1 ${
+              coverage >= 0.75 ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/30" :
+              coverage >= 0.5 ? "bg-amber-500/10 text-amber-300 ring-amber-400/30" :
+              "bg-rose-500/10 text-rose-300 ring-rose-400/30"}`}>
               {Math.round(coverage * 100)}% cited
             </span>
           )}
-          <span className={`rounded-full px-3 py-1.5 ${
-            live.failed ? "bg-rose-950 text-rose-300" :
-            live.finished ? "bg-emerald-950 text-emerald-300" : "bg-indigo-950 text-indigo-300"}`}>
+          <span className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium ring-1 ${
+            live.failed ? "bg-rose-500/10 text-rose-300 ring-rose-400/30" :
+            live.finished ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/30" :
+            "bg-indigo-500/10 text-indigo-300 ring-indigo-400/30"}`}>
+            {!live.failed && !live.finished && <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-indigo-400" />}
             {live.failed ? "failed" : live.finished ? "done" : live.connected ? "running" : "connecting"}
           </span>
           {live.finished && !live.failed && (
             <>
               <a href={`${API_URL}/api/research/${id}/report.md`} target="_blank"
-                 className="rounded-full border border-zinc-700 px-3 py-1.5 text-zinc-300 hover:border-indigo-500">.md</a>
+                 className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-zinc-300 transition hover:border-indigo-400/50 hover:bg-indigo-500/10 hover:text-indigo-200">↓ .md</a>
               <a href={`${API_URL}/api/research/${id}/report.pdf`} target="_blank"
-                 className="rounded-full border border-zinc-700 px-3 py-1.5 text-zinc-300 hover:border-indigo-500">.pdf</a>
+                 className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-zinc-300 transition hover:border-indigo-400/50 hover:bg-indigo-500/10 hover:text-indigo-200">↓ .pdf</a>
             </>
           )}
         </div>
       </div>
 
-      <div className="mt-5 flex items-center gap-1 text-[11px]">
-        {STAGES.map(([key, label], i) => (
-          <div key={key} className="flex items-center gap-1">
-            {i > 0 && <div className="h-px w-6 bg-zinc-800" />}
-            <span className={`rounded-full px-2.5 py-1 ${
-              i === stageIdx && !live.finished ? "bg-indigo-600 text-white" :
-              i < stageIdx || live.finished ? "bg-zinc-800 text-zinc-300" : "bg-zinc-900 text-zinc-600"}`}>
-              {label}{live.iteration > 0 && key === "planner" && ` ×${live.iteration + 1}`}
-            </span>
-          </div>
-        ))}
+      {/* stage pipeline */}
+      <div className="glass fade-up d1 mt-5 flex flex-wrap items-center gap-1 px-4 py-3 text-[11px]">
+        {STAGES.map(([key, label, icon], i) => {
+          const active = i === stageIdx && !live.finished;
+          const done = i < stageIdx || live.finished;
+          return (
+            <div key={key} className="flex items-center gap-1">
+              {i > 0 && (
+                <div className={`h-px w-5 sm:w-7 ${done ? "bg-gradient-to-r from-indigo-400/60 to-fuchsia-400/60" : "bg-zinc-800"}`} />
+              )}
+              <span className={`relative flex items-center gap-1.5 overflow-hidden rounded-full px-2.5 py-1.5 font-medium transition-colors ${
+                active ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_0_16px_rgba(129,140,248,0.45)]" :
+                done ? "bg-white/[0.05] text-zinc-300 ring-1 ring-white/10" :
+                "bg-transparent text-zinc-600"}`}>
+                {active && <span className="shimmer absolute inset-0" />}
+                <span className="relative">{done && !active ? "✓" : icon}</span>
+                <span className="relative">
+                  {label}{live.iteration > 0 && key === "planner" && ` ×${live.iteration + 1}`}
+                </span>
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {live.failed && (
-        <div className="mt-4 rounded-lg border border-rose-900 bg-rose-950/40 p-4 text-sm text-rose-200">
-          {live.failed}
+        <div className="fade-up mt-4 rounded-xl border border-rose-500/30 bg-rose-500/[0.07] p-4 text-sm text-rose-200 backdrop-blur-sm">
+          💥 {live.failed}
         </div>
       )}
 
+      {/* DAG + live trace */}
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section className="h-[380px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
-          <header className="border-b border-zinc-800 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Sub-question DAG
+        <section className="glass fade-up d2 h-[380px] overflow-hidden">
+          <header className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            <span className="text-sm">🕸️</span> Sub-question DAG
           </header>
-          <div className="h-[340px]">
+          <div className="h-[338px]">
             <DagView plan={plan} sqStatus={sqStatus} />
           </div>
         </section>
-        <section className="h-[380px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
-          <header className="border-b border-zinc-800 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Live agent trace
+        <section className="glass fade-up d3 h-[380px] overflow-hidden">
+          <header className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            <span className="text-sm">📡</span> Live agent trace
+            {!live.finished && !live.failed && <span className="pulse-dot ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />}
           </header>
-          <div className="h-[340px] p-3">
+          <div className="h-[338px] p-3">
             <EventTimeline events={live.events} />
           </div>
         </section>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
-        <div className="flex border-b border-zinc-800 text-sm">
+      {/* report / audit */}
+      <div className="glass fade-up d4 mt-4 overflow-hidden">
+        <div className="flex items-center gap-1 border-b border-white/[0.06] px-3 py-2 text-sm">
           <button onClick={() => setTab("report")}
-                  className={`px-5 py-2.5 ${tab === "report" ? "border-b-2 border-indigo-500 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}>
-            Report {!live.finished && live.draft && <span className="ml-1 animate-pulse text-indigo-400">●</span>}
+                  className={`rounded-lg px-4 py-1.5 font-medium transition ${
+                    tab === "report"
+                      ? "bg-gradient-to-r from-indigo-500/25 to-violet-500/25 text-indigo-200 ring-1 ring-indigo-400/30"
+                      : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"}`}>
+            📄 Report {!live.finished && live.draft && <span className="ml-1 animate-pulse text-indigo-400">●</span>}
           </button>
           <button onClick={() => setTab("audit")}
-                  className={`px-5 py-2.5 ${tab === "audit" ? "border-b-2 border-indigo-500 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}>
-            Citation audit {verdicts.length > 0 && <span className="ml-1 text-xs text-zinc-500">({verdicts.length})</span>}
+                  className={`rounded-lg px-4 py-1.5 font-medium transition ${
+                    tab === "audit"
+                      ? "bg-gradient-to-r from-indigo-500/25 to-violet-500/25 text-indigo-200 ring-1 ring-indigo-400/30"
+                      : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"}`}>
+            🔬 Citation audit {verdicts.length > 0 && <span className="ml-1 text-xs text-zinc-500">({verdicts.length})</span>}
           </button>
         </div>
         {tab === "report"

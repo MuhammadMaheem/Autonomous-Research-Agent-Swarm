@@ -3,7 +3,12 @@
 @tailwind utilities;
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
+  @apply bg-[#07070c] text-zinc-100 antialiased;
+  background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent);
+}
+
+::selection {
+  @apply bg-indigo-500/40 text-white;
 }
 
 ::-webkit-scrollbar {
@@ -11,17 +16,126 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-zinc-700 rounded;
+  @apply rounded bg-zinc-700/80;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-600;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-zinc-900;
+  background: transparent;
+}
+
+/* ---------- ambient background layers (rendered once in layout) ---------- */
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(113, 113, 122, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(113, 113, 122, 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 75%);
+}
+
+@keyframes aurora-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(90px, 50px) scale(1.15); }
+  66% { transform: translate(-60px, 20px) scale(0.95); }
+}
+@keyframes aurora-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-110px, -40px) scale(1.2); }
+}
+@keyframes aurora-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(70px, -60px) scale(1.1); }
+}
+.aurora {
+  @apply pointer-events-none absolute rounded-full blur-3xl;
+}
+.aurora-a {
+  animation: aurora-a 22s ease-in-out infinite;
+  background: rgba(99, 102, 241, 0.22);
+}
+.aurora-b {
+  animation: aurora-b 28s ease-in-out infinite;
+  background: rgba(217, 70, 239, 0.13);
+}
+.aurora-c {
+  animation: aurora-c 25s ease-in-out infinite;
+  background: rgba(34, 211, 238, 0.1);
+}
+
+/* ---------- reusable surfaces ---------- */
+
+.glass {
+  @apply rounded-2xl border border-white/[0.08] bg-zinc-900/50 shadow-[0_8px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl;
+}
+
+.text-gradient {
+  @apply bg-gradient-to-r from-indigo-300 via-fuchsia-300 to-cyan-300 bg-clip-text text-transparent;
+}
+
+.btn-gradient {
+  @apply bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 shadow-[0_0_24px_rgba(129,140,248,0.35)];
+  background-size: 160% 100%;
+  transition: background-position 0.4s ease, box-shadow 0.3s ease, transform 0.15s ease;
+}
+.btn-gradient:hover:not(:disabled) {
+  background-position: 100% 0;
+  box-shadow: 0 0 36px rgba(167, 139, 250, 0.5);
+  transform: translateY(-1px);
+}
+.btn-gradient:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* ---------- motion ---------- */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fade-up.d1 { animation-delay: 80ms; }
+.fade-up.d2 { animation-delay: 160ms; }
+.fade-up.d3 { animation-delay: 240ms; }
+.fade-up.d4 { animation-delay: 320ms; }
+.fade-up.d5 { animation-delay: 400ms; }
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.shimmer {
+  background: linear-gradient(110deg, transparent 30%, rgba(165, 180, 252, 0.25) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
 }
 
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.55); }
-  70% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.6), 0 0 18px rgba(129, 140, 248, 0.35); }
+  70% { box-shadow: 0 0 0 10px rgba(129, 140, 248, 0), 0 0 18px rgba(129, 140, 248, 0.35); }
+  100% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0), 0 0 18px rgba(129, 140, 248, 0.35); }
 }
 .node-running {
   animation: pulse-ring 1.6s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+.pulse-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes flow-dash {
+  to { stroke-dashoffset: -12; }
+}
+
+/* focus ring for the question card */
+.ring-glow:focus-within {
+  @apply border-indigo-400/60;
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35), 0 0 40px rgba(99, 102, 241, 0.18);
 }
