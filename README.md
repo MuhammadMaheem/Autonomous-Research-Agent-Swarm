@@ -147,4 +147,3 @@ screenshots/        # demo captures (query, live trace, report, audit)
   rlimits, no network), not against a determined adversary; only system-generated code runs.
 - Single-process, single-user: no auth, in-flight runs die with the server (events up to that
   point persist).
-# Autonomous-Research-Agent-Swarm
