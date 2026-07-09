@@ -1,0 +1,11 @@
+# LLM Agents and Multi-Agent Systems
+
+An LLM agent is a language model wrapped in a control loop that lets it take actions — calling tools, executing code, searching the web — and observe results before producing a final answer. ReAct (Yao et al., 2022) interleaves reasoning traces ("thoughts") with tool actions and observations, and remains the canonical single-agent pattern. Reflexion (Shinn et al., 2023) adds verbal self-feedback: after a failed attempt, the agent critiques its own trajectory and retries with the critique in context, improving performance on coding and decision-making benchmarks without any weight updates.
+
+Multi-agent systems decompose a task across specialized agents coordinated by an orchestrator. Frameworks such as AutoGen and MetaGPT assign roles (planner, coder, reviewer) and route messages between them. Reported benefits include better task decomposition, parallel execution of independent subtasks, and specialization of prompts and tools per role. Reported costs include token overhead from inter-agent communication, error cascades when one agent's mistake propagates downstream, and harder debugging.
+
+Planner-worker architectures decompose a complex query into sub-tasks, execute them (possibly in parallel), and synthesize results. When sub-tasks have dependencies, the plan forms a directed acyclic graph (DAG) rather than a flat list: independent nodes run concurrently in topological waves, and dependent nodes receive upstream outputs as context. This preserves parallelism while respecting information flow.
+
+Reflection loops bound the cost of self-correction by capping iterations. Uncapped feedback loops risk oscillation (the agent alternates between two answers) or unbounded spend; production systems typically allow one to three reflection rounds and route to a final answer when the cap is reached regardless of quality gates.
+
+Research-oriented agent systems such as STORM (Shao et al., 2024) and GPT-Researcher generate long-form, citation-rich reports by combining question decomposition, multi-perspective web research, and outline-driven synthesis. Evaluations of these systems emphasize citation quality and coverage of the topic, not just fluency.

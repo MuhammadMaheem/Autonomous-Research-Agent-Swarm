@@ -1,0 +1,22 @@
+# secrets
+.env
+*.env
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+backend/data/*.db
+backend/data/*.db-journal
+backend/reports/
+
+# node
+node_modules/
+.next/
+out/
+
+# misc
+.DS_Store
+*.log

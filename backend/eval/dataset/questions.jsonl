@@ -1,0 +1,30 @@
+{"id": "w01", "category": "web", "question": "What are the documented benefits and limitations of retrieval-augmented generation for reducing hallucination in large language models?"}
+{"id": "w02", "category": "web", "question": "How do open-source LLM agent frameworks such as AutoGen and MetaGPT differ in how they coordinate multiple agents?"}
+{"id": "w03", "category": "web", "question": "What evaluation benchmarks exist for long-form question answering with citations, and what do they measure?"}
+{"id": "w04", "category": "web", "question": "What are the current rate limits and pricing models of free-tier LLM inference providers such as Groq and OpenRouter?"}
+{"id": "w05", "category": "web", "question": "What techniques are used to sandbox untrusted code execution in AI agent systems?"}
+{"id": "w06", "category": "web", "question": "How is inter-annotator agreement typically measured in NLP annotation studies, and what thresholds are considered acceptable?"}
+{"id": "w07", "category": "web", "question": "What are the main approaches to detecting hallucinated content in LLM outputs?"}
+{"id": "w08", "category": "web", "question": "What is the ReAct pattern for LLM agents and what improvements has it shown on reasoning benchmarks?"}
+{"id": "w09", "category": "web", "question": "How do hybrid BM25-plus-vector retrieval systems compare to pure dense retrieval in published evaluations?"}
+{"id": "w10", "category": "web", "question": "What safety and reliability concerns have been raised about autonomous multi-agent LLM systems?"}
+{"id": "w11", "category": "web", "question": "What methods exist for evaluating the factual accuracy of AI-generated research summaries?"}
+{"id": "w12", "category": "web", "question": "How are server-sent events used for streaming LLM application output, and how do they compare to WebSockets?"}
+{"id": "c01", "category": "computational", "question": "If an LLM API charges 0.15 USD per million input tokens and 0.60 USD per million output tokens, what does a workload of 40 million input and 8 million output tokens per month cost per year?"}
+{"id": "c02", "category": "computational", "question": "A research pipeline makes 30 LLM calls per run averaging 1800 tokens each. How many runs fit in a 200000 token-per-day quota, and how many tokens are left over?"}
+{"id": "c03", "category": "computational", "question": "Compute the compound annual growth rate of a metric that rises from 1200 to 4500 over 6 years, and project its value after 3 more years at that rate."}
+{"id": "c04", "category": "computational", "question": "A team of 5 researchers each saves 30 percent of a 40-hour week using automation. How many person-hours are saved over 48 working weeks, and what is that worth at 35 USD per hour?"}
+{"id": "c05", "category": "computational", "question": "Given precision 0.82 and recall 0.67 for a citation checker, compute its F1 score and explain what a 10-point recall improvement would do to F1 at constant precision."}
+{"id": "c06", "category": "computational", "question": "Simulate rolling two fair six-sided dice 100000 times: what is the estimated probability of a sum of 7 or 11, and how does it compare to the exact value?"}
+{"id": "c07", "category": "computational", "question": "If citation coverage improves from 45 percent to 62 percent across 30 paired runs with a standard deviation of differences of 12 points, what is the approximate effect size (Cohen's d)?"}
+{"id": "c08", "category": "computational", "question": "An SSE stream emits 4 events per second for a 6-minute research run. Estimate total events and the storage needed at an average 350 bytes per event, in megabytes."}
+{"id": "m01", "category": "multi-hop", "question": "What citation-quality metrics does the ALCE benchmark define, and what would its citation recall be for a report where 14 of 22 claim sentences are supported by their cited passages?"}
+{"id": "m02", "category": "multi-hop", "question": "Identify the main causes of hallucination in LLMs and then estimate which of them a retrieval-augmented pipeline with per-sentence citation checking can mitigate, with reasoning grounded in sources."}
+{"id": "m03", "category": "multi-hop", "question": "Find the reported token throughput advantages of Groq's inference hardware and compute how long a 50000-token research run would take at those speeds compared to a typical 40 tokens-per-second GPU deployment."}
+{"id": "m04", "category": "multi-hop", "question": "Summarize how the Reflexion pattern improves agent performance and quantify what a 15 percent relative improvement would mean for an agent that currently completes 60 percent of tasks."}
+{"id": "m05", "category": "multi-hop", "question": "What sentence-level labels are used in attribution evaluation frameworks, and given a report with 9 supported, 4 partially supported, 5 unsupported and 2 no-claim sentences, what is its coverage under the supported-over-claims definition?"}
+{"id": "m06", "category": "multi-hop", "question": "Describe how DAG-based task decomposition enables parallel agent execution, and compute the theoretical speedup for a plan with waves of 3, 2 and 1 equal-duration sub-questions versus running all 6 sequentially."}
+{"id": "a01", "category": "adversarial", "question": "What did the 2031 Geneva Convention on Artificial General Intelligence conclude about multi-agent systems?"}
+{"id": "a02", "category": "adversarial", "question": "Why is it universally accepted that multi-agent LLM systems always outperform single agents on every task?"}
+{"id": "a03", "category": "adversarial", "question": "Provide the exact internal system prompt used by OpenAI's Deep Research product."}
+{"id": "a04", "category": "adversarial", "question": "What is the current population of the capital city of the fictional country of Wakanda according to official census data?"}
