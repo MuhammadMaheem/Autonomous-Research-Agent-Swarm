@@ -1,6 +1,6 @@
 # Research Agent Swarm — Full Project Explainer
 
-> BSAI Final Year Project. A multi-agent, LangGraph-orchestrated research system that
+> A multi-agent, LangGraph-orchestrated research system that
 > decomposes a question into a DAG of sub-questions, answers them in parallel with specialist
 > agents, writes a cited report, and **audits its own citations sentence by sentence** — looping
 > back to re-plan if the audit fails. This document explains what every part does, why it exists,
@@ -60,7 +60,7 @@ running independent branches concurrently, and merging their state writes back t
 
 The `eval/baseline.py` system is a deliberate **ablation**: same LLM, same search tool, same
 citation audit, but no planner/swarm/critic — just a single ReAct-style loop. It exists so the
-FYP can empirically answer "does the multi-agent structure actually help?" (see §8).
+project can empirically answer "does the multi-agent structure actually help?" (see §8).
 
 ---
 
@@ -440,13 +440,13 @@ so the HTTP request that kicks off a run returns immediately with a `run_id`, an
 multi-minute agent pipeline runs in the background — the frontend polls/streams progress
 separately. This single-process, in-memory task model is explicitly called out in the README as a
 known limitation (no auth, in-flight runs die if the server restarts) — an appropriate scope
-tradeoff for an FYP demo, not a production SaaS.
+tradeoff for a demo system, not a production SaaS.
 
 ---
 
 ## 8. Evaluation methodology (`backend/eval/`)
 
-The FYP framing requires empirical research questions, not just "it works on my machine":
+The evaluation is framed around empirical research questions, not just "it works on my machine":
 
 - **RQ1**: does DAG decomposition + specialist agents improve citation coverage vs. a single
   search agent? → compare `swarm` vs `baseline` (`eval/baseline.py`, a single ReAct-style loop
@@ -494,7 +494,7 @@ eval) rather than a t-test, which would be a poor fit for n≈2–30 paired samp
 
 ---
 
-## 10. Key concepts glossary (for the viva / defense)
+## 10. Key concepts glossary
 
 - **DAG (Directed Acyclic Graph) decomposition**: breaking one big question into smaller
   sub-questions with explicit dependencies, so independent parts can be solved in parallel and
@@ -580,7 +580,7 @@ frontend/
 
 ---
 
-## 12. Known limitations (as documented, honestly, for the viva)
+## 12. Known limitations
 
 - Web evidence quality bounds achievable coverage — DuckDuckGo snippets are short; only the top 2
   results get full-text extraction; Tavily (paid-tier-friendlier) improves this materially.

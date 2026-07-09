@@ -1,6 +1,6 @@
 # Autonomous Research Agent Swarm
 
-A multi-agent research system (BSAI Final Year Project). A **Planner** decomposes a research
+A multi-agent research system. A **Planner** decomposes a research
 question into a **DAG of sub-questions**; specialist agents (web search, sandboxed Python,
 local-corpus RAG) execute them in parallel topological waves; a **Synthesizer** writes a cited
 report; a **Citation-Checker** audits every sentence against the retrieved evidence; a
@@ -84,7 +84,7 @@ mechanics, reflection-loop integration with doctored coverage).
 | `GET /api/research/{id}/events` | SSE trace — replays persisted events, then streams live |
 | `GET /api/research/{id}/report.md` / `report.pdf` | final report |
 
-## Evaluation (viva methodology)
+## Evaluation
 
 Research questions: **RQ1** does DAG decomposition + specialist agents improve citation
 coverage vs a single search agent? **RQ2** does the critic loop help? (ablation) **RQ3** how

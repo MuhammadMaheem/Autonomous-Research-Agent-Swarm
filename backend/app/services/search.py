@@ -148,7 +148,7 @@ async def enrich_with_page_text(results: list[SearchResult], n: int = 2, char_li
     async def fetch(r: SearchResult) -> None:
         try:
             async with httpx.AsyncClient(timeout=8, follow_redirects=True,
-                                         headers={"User-Agent": "Mozilla/5.0 (research-swarm FYP)"}) as client:
+                                         headers={"User-Agent": "Mozilla/5.0 (research-swarm)"}) as client:
                 resp = await client.get(r.url)
                 resp.raise_for_status()
             text = await asyncio.get_event_loop().run_in_executor(

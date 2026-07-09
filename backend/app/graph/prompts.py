@@ -1,4 +1,4 @@
-"""All LLM prompts, centralized for iteration and for the FYP report appendix."""
+"""All LLM prompts, centralized for iteration and for the report appendix."""
 
 PLANNER_SYSTEM = """You are the Planner of a multi-agent research system. Decompose the user's research
 question into 3-{max_sq} sub-questions forming a dependency DAG.
