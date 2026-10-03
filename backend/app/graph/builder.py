@@ -12,7 +12,7 @@ from app.graph.nodes.critic import critic, route_after_critic
 from app.graph.nodes.finalizer import finalizer
 from app.graph.nodes.planner import planner
 from app.graph.nodes.scheduler import dispatch, scheduler
-from app.graph.nodes.specialists import code_agent, rag_agent, web_agent
+from app.graph.nodes.specialists import code_agent, rag_agent, scholar_agent, web_agent
 from app.graph.nodes.synthesizer import synthesizer
 from app.graph.state import SwarmState
 
@@ -25,6 +25,7 @@ def build_graph(node_overrides: dict[str, Callable] | None = None):
         "web_agent": web_agent,
         "code_agent": code_agent,
         "rag_agent": rag_agent,
+        "scholar_agent": scholar_agent,
         "synthesizer": synthesizer,
         "citation_checker": citation_checker,
         "critic": critic,
@@ -40,11 +41,12 @@ def build_graph(node_overrides: dict[str, Callable] | None = None):
     g.add_edge("planner", "scheduler")
     g.add_conditional_edges(
         "scheduler", dispatch,
-        ["web_agent", "code_agent", "rag_agent", "synthesizer"],
+        ["web_agent", "code_agent", "rag_agent", "scholar_agent", "synthesizer"],
     )
     g.add_edge("web_agent", "scheduler")
     g.add_edge("code_agent", "scheduler")
     g.add_edge("rag_agent", "scheduler")
+    g.add_edge("scholar_agent", "scheduler")
     g.add_edge("synthesizer", "citation_checker")
     g.add_edge("citation_checker", "critic")
     g.add_conditional_edges("critic", route_after_critic, ["planner", "finalizer"])

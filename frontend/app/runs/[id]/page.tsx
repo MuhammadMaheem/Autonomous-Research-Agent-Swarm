@@ -12,15 +12,56 @@ import { API_URL, RunDetail } from "@/lib/types";
 const STAGES = [
   ["planner", "Planner", "🗺️"],
   ["scheduler", "Swarm", "🐝"],
-  ["synthesizer", "Synthesizer", "✍️"],
-  ["citation_checker", "Citation audit", "🔬"],
+  ["synthesizer", "Synthesize", "✍️"],
+  ["citation_checker", "Audit", "🔬"],
   ["critic", "Critic", "♻️"],
-  ["finalizer", "Final report", "🏁"],
+  ["finalizer", "Finalize", "🏁"],
 ] as const;
 
 const STAGE_ALIAS: Record<string, string> = {
-  web_agent: "scheduler", code_agent: "scheduler", rag_agent: "scheduler", runner: "planner",
+  web_agent: "scheduler",
+  code_agent: "scheduler",
+  rag_agent: "scheduler",
+  scholar_agent: "scheduler",
+  runner: "planner",
 };
+
+/** SVG circular progress ring */
+function CoverageRing({ pct, size = 40 }: { pct: number; size?: number }) {
+  const r = (size - 6) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  const color = pct >= 75 ? "#34d399" : pct >= 50 ? "#fbbf24" : "#fb7185";
+
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(148,163,184,0.1)" strokeWidth="3" />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        className="ring-fill-anim transition-all duration-700"
+        style={{ ["--circ" as string]: circ }}
+      />
+      <text
+        x={size / 2}
+        y={size / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        className="rotate-90 fill-zinc-200 text-[10px] font-bold tabular-nums"
+        style={{ transformOrigin: "center" }}
+      >
+        {pct}%
+      </text>
+    </svg>
+  );
+}
 
 export default function RunPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -48,120 +89,190 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
     return done;
   }, [live.finished, live.plan, live.sqStatus, plan]);
 
+  const covPct = coverage != null ? Math.round(coverage * 100) : null;
+
   return (
-    <main className="mx-auto max-w-7xl px-6 py-8">
-      {/* header */}
-      <div className="fade-up flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <Link href="/"
-                className="group inline-flex items-center gap-1.5 text-xs text-zinc-500 transition hover:text-indigo-300">
-            <span className="transition group-hover:-translate-x-0.5">←</span> new question
+    <div className="flex min-h-screen flex-col">
+      {/* ── sticky header ── */}
+      <header className="fade-up sticky top-0 z-30 border-b border-zinc-800/60 bg-surface-deep/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
+          <Link
+            href="/"
+            className="group flex items-center gap-1.5 text-xs text-zinc-500 transition hover:text-brand-300"
+          >
+            <span className="transition group-hover:-translate-x-0.5">←</span>
+            <span className="hidden sm:inline">new question</span>
           </Link>
-          <h1 className="mt-1.5 truncate text-xl font-semibold tracking-tight text-zinc-100" title={run?.question}>
+          <h1
+            className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-200"
+            title={run?.question}
+          >
             {run?.question ?? "…"}
           </h1>
-        </div>
-        <div className="flex items-center gap-2 text-xs">
-          {coverage != null && (
-            <span className={`rounded-full px-3 py-1.5 font-semibold ring-1 ${
-              coverage >= 0.75 ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/30" :
-              coverage >= 0.5 ? "bg-amber-500/10 text-amber-300 ring-amber-400/30" :
-              "bg-rose-500/10 text-rose-300 ring-rose-400/30"}`}>
-              {Math.round(coverage * 100)}% cited
-            </span>
-          )}
-          <span className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium ring-1 ${
-            live.failed ? "bg-rose-500/10 text-rose-300 ring-rose-400/30" :
-            live.finished ? "bg-emerald-500/10 text-emerald-300 ring-emerald-400/30" :
-            "bg-indigo-500/10 text-indigo-300 ring-indigo-400/30"}`}>
-            {!live.failed && !live.finished && <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-indigo-400" />}
-            {live.failed ? "failed" : live.finished ? "done" : live.connected ? "running" : "connecting"}
-          </span>
-          {live.finished && !live.failed && (
-            <>
-              <a href={`${API_URL}/api/research/${id}/report.md`} target="_blank"
-                 className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-zinc-300 transition hover:border-indigo-400/50 hover:bg-indigo-500/10 hover:text-indigo-200">↓ .md</a>
-              <a href={`${API_URL}/api/research/${id}/report.pdf`} target="_blank"
-                 className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-zinc-300 transition hover:border-indigo-400/50 hover:bg-indigo-500/10 hover:text-indigo-200">↓ .pdf</a>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* stage pipeline */}
-      <div className="glass fade-up d1 mt-5 flex flex-wrap items-center gap-1 px-4 py-3 text-[11px]">
-        {STAGES.map(([key, label, icon], i) => {
-          const active = i === stageIdx && !live.finished;
-          const done = i < stageIdx || live.finished;
-          return (
-            <div key={key} className="flex items-center gap-1">
-              {i > 0 && (
-                <div className={`h-px w-5 sm:w-7 ${done ? "bg-gradient-to-r from-indigo-400/60 to-fuchsia-400/60" : "bg-zinc-800"}`} />
+          <div className="flex items-center gap-2">
+            {covPct != null && <CoverageRing pct={covPct} />}
+            <span
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                live.failed
+                  ? "bg-rose-500/10 text-rose-300 ring-rose-500/30"
+                  : live.finished
+                    ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
+                    : "bg-brand-500/10 text-brand-300 ring-brand-500/30"
+              }`}
+            >
+              {!live.failed && !live.finished && (
+                <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-brand-400" />
               )}
-              <span className={`relative flex items-center gap-1.5 overflow-hidden rounded-full px-2.5 py-1.5 font-medium transition-colors ${
-                active ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_0_16px_rgba(129,140,248,0.45)]" :
-                done ? "bg-white/[0.05] text-zinc-300 ring-1 ring-white/10" :
-                "bg-transparent text-zinc-600"}`}>
-                {active && <span className="shimmer absolute inset-0" />}
-                <span className="relative">{done && !active ? "✓" : icon}</span>
-                <span className="relative">
-                  {label}{live.iteration > 0 && key === "planner" && ` ×${live.iteration + 1}`}
-                </span>
-              </span>
-            </div>
-          );
-        })}
-      </div>
+              {live.failed ? "failed" : live.finished ? "done" : live.connected ? "running" : "connecting"}
+            </span>
+            {live.finished && !live.failed && (
+              <>
+                <a
+                  href={`${API_URL}/api/research/${id}/report.md`}
+                  target="_blank"
+                  className="hidden rounded-full border border-zinc-700/60 bg-zinc-900/60 px-2.5 py-1 text-[11px] text-zinc-400 transition hover:border-brand-400/40 hover:text-brand-300 sm:inline"
+                >
+                  ↓ .md
+                </a>
+                <a
+                  href={`${API_URL}/api/research/${id}/report.pdf`}
+                  target="_blank"
+                  className="hidden rounded-full border border-zinc-700/60 bg-zinc-900/60 px-2.5 py-1 text-[11px] text-zinc-400 transition hover:border-brand-400/40 hover:text-brand-300 sm:inline"
+                >
+                  ↓ .pdf
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
 
       {live.failed && (
-        <div className="fade-up mt-4 rounded-xl border border-rose-500/30 bg-rose-500/[0.07] p-4 text-sm text-rose-200 backdrop-blur-sm">
-          💥 {live.failed}
+        <div className="mx-auto w-full max-w-7xl px-6 pt-3">
+          <div className="rounded-lg border border-rose-500/30 bg-rose-500/[0.06] px-4 py-3 text-sm text-rose-300">
+            💥 {live.failed}
+          </div>
         </div>
       )}
 
-      {/* DAG + live trace */}
-      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section className="glass fade-up d2 h-[380px] overflow-hidden">
-          <header className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            <span className="text-sm">🕸️</span> Sub-question DAG
-          </header>
-          <div className="h-[338px]">
-            <DagView plan={plan} sqStatus={sqStatus} />
-          </div>
-        </section>
-        <section className="glass fade-up d3 h-[380px] overflow-hidden">
-          <header className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            <span className="text-sm">📡</span> Live agent trace
-            {!live.finished && !live.failed && <span className="pulse-dot ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-          </header>
-          <div className="h-[338px] p-3">
-            <EventTimeline events={live.events} />
-          </div>
-        </section>
-      </div>
+      {/* ── dashboard grid ── */}
+      <div className="fade-up d1 mx-auto w-full max-w-7xl flex-1 px-6 py-4">
+        <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-[340px_1fr]">
+          {/* ── left column: pipeline + DAG + trace ── */}
+          <div className="flex flex-col gap-3 lg:max-h-[calc(100vh-88px)] lg:overflow-hidden">
+            {/* vertical pipeline */}
+            <div className="panel-solid px-4 py-3">
+              <div className="flex items-center gap-1.5">
+                {STAGES.map(([key, label, icon], i) => {
+                  const active = i === stageIdx && !live.finished;
+                  const done = i < stageIdx || live.finished;
+                  return (
+                    <div key={key} className="flex items-center gap-0.5">
+                      {i > 0 && (
+                        <div
+                          className={`h-px w-3 sm:w-4 ${
+                            done
+                              ? "bg-gradient-to-r from-brand-400/50 to-teal-400/50"
+                              : "bg-zinc-800"
+                          }`}
+                        />
+                      )}
+                      <span
+                        className={`relative flex items-center gap-1 overflow-hidden rounded-full px-2 py-1 text-[10px] font-medium transition-colors ${
+                          active
+                            ? "bg-brand-500/20 text-brand-200 ring-1 ring-brand-400/40 glow-pulse"
+                            : done
+                              ? "bg-white/[0.04] text-zinc-400 ring-1 ring-zinc-700/50"
+                              : "text-zinc-600"
+                        }`}
+                      >
+                        {active && <span className="shimmer absolute inset-0" />}
+                        <span className="relative">{done && !active ? "✓" : icon}</span>
+                        <span className="relative hidden sm:inline">
+                          {label}
+                          {live.iteration > 0 && key === "planner" && ` ×${live.iteration + 1}`}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
-      {/* report / audit */}
-      <div className="glass fade-up d4 mt-4 overflow-hidden">
-        <div className="flex items-center gap-1 border-b border-white/[0.06] px-3 py-2 text-sm">
-          <button onClick={() => setTab("report")}
-                  className={`rounded-lg px-4 py-1.5 font-medium transition ${
-                    tab === "report"
-                      ? "bg-gradient-to-r from-indigo-500/25 to-violet-500/25 text-indigo-200 ring-1 ring-indigo-400/30"
-                      : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"}`}>
-            📄 Report {!live.finished && live.draft && <span className="ml-1 animate-pulse text-indigo-400">●</span>}
-          </button>
-          <button onClick={() => setTab("audit")}
-                  className={`rounded-lg px-4 py-1.5 font-medium transition ${
-                    tab === "audit"
-                      ? "bg-gradient-to-r from-indigo-500/25 to-violet-500/25 text-indigo-200 ring-1 ring-indigo-400/30"
-                      : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"}`}>
-            🔬 Citation audit {verdicts.length > 0 && <span className="ml-1 text-xs text-zinc-500">({verdicts.length})</span>}
-          </button>
+            {/* DAG */}
+            <div className="panel-solid overflow-hidden" style={{ height: 280 }}>
+              <header className="flex items-center gap-2 border-b border-zinc-800/50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                <span className="text-xs">🕸️</span> Sub-question DAG
+              </header>
+              <div style={{ height: 248 }}>
+                <DagView plan={plan} sqStatus={sqStatus} />
+              </div>
+            </div>
+
+            {/* live trace */}
+            <div className="panel-solid flex-1 overflow-hidden lg:flex-1">
+              <header className="flex items-center gap-2 border-b border-zinc-800/50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                <span className="text-xs">📡</span> Live trace
+                {!live.finished && !live.failed && (
+                  <span className="pulse-dot ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                )}
+                <span className="ml-auto text-zinc-600 font-mono">{live.events.length}</span>
+              </header>
+              <div className="h-[calc(100%-32px)] overflow-y-auto p-2.5">
+                <EventTimeline events={live.events} />
+              </div>
+            </div>
+          </div>
+
+          {/* ── right column: report / audit ── */}
+          <div className="panel-solid flex flex-col overflow-hidden lg:max-h-[calc(100vh-88px)]">
+            {/* tabs */}
+            <div className="flex items-center gap-0.5 border-b border-zinc-800/50 px-2 py-1.5">
+              <button
+                onClick={() => setTab("report")}
+                className={`relative rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+                  tab === "report"
+                    ? "text-brand-200"
+                    : "text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-300"
+                }`}
+              >
+                📄 Report
+                {!live.finished && live.draft && (
+                  <span className="ml-1.5 animate-pulse text-brand-400">●</span>
+                )}
+                {tab === "report" && (
+                  <span className="absolute bottom-0 left-2 right-2 h-px bg-gradient-to-r from-brand-400 to-teal-400" />
+                )}
+              </button>
+              <button
+                onClick={() => setTab("audit")}
+                className={`relative rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+                  tab === "audit"
+                    ? "text-brand-200"
+                    : "text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-300"
+                }`}
+              >
+                🔬 Audit
+                {verdicts.length > 0 && (
+                  <span className="ml-1 text-xs text-zinc-500">({verdicts.length})</span>
+                )}
+                {tab === "audit" && (
+                  <span className="absolute bottom-0 left-2 right-2 h-px bg-gradient-to-r from-brand-400 to-teal-400" />
+                )}
+              </button>
+            </div>
+
+            {/* tab content */}
+            <div className="flex-1 overflow-y-auto">
+              {tab === "report" ? (
+                <ReportView markdown={reportMd} streaming={!live.finished && !!live.draft} />
+              ) : (
+                <AuditPanel verdicts={verdicts} evidence={evidence} />
+              )}
+            </div>
+          </div>
         </div>
-        {tab === "report"
-          ? <ReportView markdown={reportMd} streaming={!live.finished && !!live.draft} />
-          : <AuditPanel verdicts={verdicts} evidence={evidence} />}
       </div>
-    </main>
+    </div>
   );
 }

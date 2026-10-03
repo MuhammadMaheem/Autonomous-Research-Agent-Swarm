@@ -1,4 +1,4 @@
-export type AgentType = "web" | "code" | "rag";
+export type AgentType = "web" | "code" | "rag" | "scholar";
 
 export interface SubQuestion {
   id: string;

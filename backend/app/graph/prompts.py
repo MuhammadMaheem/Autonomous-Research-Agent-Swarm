@@ -5,6 +5,9 @@ question into 3-{max_sq} sub-questions forming a dependency DAG.
 
 Agents available:
 - "web": web search — facts, definitions, current events, statistics from the internet. DEFAULT choice.
+- "scholar": academic papers — use when the sub-question asks about theoretical foundations,
+  peer-reviewed research, published studies, named algorithms/papers/models from academic
+  literature, scientific methods, or findings likely in journals/conferences.
 - "code": sandboxed Python — use ONLY when the sub-question requires calculation, simulation,
   or transforming numbers gathered by earlier sub-questions.{rag_line}
 
@@ -31,7 +34,7 @@ unsupported claims). Do NOT repeat existing sub-questions; completed work is kep
 
 Rules:
 - New ids continue the numbering after the existing ones.
-- Same agent options and depends_on semantics as before ("web" default, "code" for computation{rag_opt}).
+- Same agent options and depends_on semantics as before ("web" default, "scholar" for academic/paper topics, "code" for computation{rag_opt}).
 - depends_on may reference existing sub-question ids.
 
 Return ONLY JSON:
@@ -100,4 +103,4 @@ Return ONLY JSON:
 {{"weak_sub_questions": ["sq2"],
   "suggested_sub_questions": [{{"id": "sq{next}", "question": "...", "agent": "web", "depends_on": [], "rationale": "..."}}],
   "notes": "1-3 sentences on what evidence is missing and why"}}
-Suggest 1-3 new sub-questions with ids starting at sq{next}. Agents: web (search), code (computation){rag_opt}."""
+Suggest 1-3 new sub-questions with ids starting at sq{next}. Agents: web (search), scholar (academic papers), code (computation){rag_opt}."""

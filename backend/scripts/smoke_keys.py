@@ -1,25 +1,32 @@
-"""Verify API keys and model access. Run: uv run python scripts/smoke_keys.py"""
+"""Verify the OpenRouter key and free-model access. Run: uv run python scripts/smoke_keys.py"""
 import asyncio
 import os
+import time
 
-from dotenv import load_dotenv
+from app.config import settings
+from app.services.llm import make_llm
 
-load_dotenv()
+
+async def probe(model: str) -> None:
+    t = time.monotonic()
+    try:
+        resp = await make_llm(model, temperature=0, max_tokens=20).ainvoke("Reply with exactly: OK")
+        tokens = (resp.usage_metadata or {}).get("total_tokens")
+        print(f"  OK   {model}: {str(resp.content).strip()[:40]!r} (tokens={tokens}, {time.monotonic() - t:.1f}s)")
+    except Exception as exc:  # free models are often rate-limited upstream; report, don't abort
+        print(f"  FAIL {model}: {str(exc)[:110]}")
 
 
 async def main() -> None:
-    from langchain_groq import ChatGroq
+    if not settings.openrouter_api_key:
+        raise SystemExit("OPENROUTER_API_KEY missing -> add it to backend/.env")
+    for role, models in (("reasoner", settings.reasoner_models), ("worker", settings.worker_models)):
+        print(f"{role} pool:")
+        for m in models:
+            await probe(m)
 
-    for model in ("openai/gpt-oss-120b", "llama-3.1-8b-instant"):
-        llm = ChatGroq(model=model, max_tokens=20, temperature=0)
-        resp = await llm.ainvoke("Reply with exactly: OK")
-        usage = resp.usage_metadata or {}
-        print(f"{model}: {resp.content!r} (tokens={usage.get('total_tokens')})")
-
-    if os.getenv("TAVILY_API_KEY"):
-        print("TAVILY_API_KEY: set")
-    else:
-        print("TAVILY_API_KEY: missing -> web search will use DuckDuckGo (ddgs) fallback")
+    print("TAVILY_API_KEY:", "set" if os.getenv("TAVILY_API_KEY") or settings.tavily_api_key
+          else "missing -> web search will use DuckDuckGo (ddgs) fallback")
 
 
 if __name__ == "__main__":

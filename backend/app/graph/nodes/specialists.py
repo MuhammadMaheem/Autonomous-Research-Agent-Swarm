@@ -22,7 +22,7 @@ from app.graph.state import Evidence, Finding
 from app.services import llm as llm_service
 from app.services.rag import get_retriever
 from app.services.sandbox import ALLOWED_IMPORTS, run_python
-from app.services.search import enrich_with_page_text, get_search_provider, sanitize_query
+from app.services.search import ScholarSearchProvider, enrich_with_page_text, get_search_provider, sanitize_query
 
 _CODE_BLOCK = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
 
@@ -138,5 +138,44 @@ async def rag_agent(payload: dict, config: RunnableConfig) -> dict:
         return {"findings": [finding], "evidence": {e.id: e for e in evidences}, "token_usage": tokens}
     except Exception as exc:
         await emitter.emit("rag_agent", "node_finished",
+                           {"sub_question_id": sq.id, "error": str(exc)[:300]})
+        return {"findings": [failed_finding(sq, str(exc))], "token_usage": tokens}
+
+
+async def scholar_agent(payload: dict, config: RunnableConfig) -> dict:
+    emitter = get_emitter(config)
+    sq, context, _question = parse_task(payload)
+    await emitter.emit("scholar_agent", "node_started",
+                       {"sub_question_id": sq.id, "question": sq.question})
+    tokens = 0
+    try:
+        provider = ScholarSearchProvider()
+        results = await provider.search(sq.question, k=4)
+        if not results:  # retry with compact keyword query
+            short = " ".join(sanitize_query(sq.question).split()[:9])
+            results = await provider.search(short, k=4)
+        if not results:
+            raise RuntimeError("no scholarly results from OpenAlex")
+        await emitter.emit("scholar_agent", "search_results", {
+            "sub_question_id": sq.id, "provider": "openalex", "query": sq.question,
+            "results": [{"title": r.title, "url": r.url} for r in results],
+        })
+        evidences = [
+            Evidence(id=evidence_id(sq, j + 1), sub_question_id=sq.id, source_type="scholar",
+                     url=r.url, title=r.title, snippet=r.best_text())
+            for j, r in enumerate(results)
+        ]
+        summary, tokens = await summarize_with_citations(sq, context, evidences)
+        finding = Finding(sub_question_id=sq.id, agent="scholar", summary=summary,
+                          evidence_ids=[e.id for e in evidences])
+        await emitter.emit("scholar_agent", "finding_ready", {
+            "sub_question_id": sq.id, "summary": summary,
+            "evidence_ids": finding.evidence_ids})
+        await emitter.emit("scholar_agent", "node_finished",
+                           {"sub_question_id": sq.id})
+        return {"findings": [finding], "evidence": {e.id: e for e in evidences},
+                "token_usage": tokens}
+    except Exception as exc:
+        await emitter.emit("scholar_agent", "node_finished",
                            {"sub_question_id": sq.id, "error": str(exc)[:300]})
         return {"findings": [failed_finding(sq, str(exc))], "token_usage": tokens}

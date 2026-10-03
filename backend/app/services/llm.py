@@ -1,31 +1,60 @@
-"""LLM access layer: model tiering, global concurrency cap, retry/backoff, JSON-mode structured output.
+"""LLM access layer: OpenRouter free-model pools, global concurrency cap, cooldown-based failover,
+JSON-mode structured output.
 
-Reasoner (planner/critic/citation-judge): openai/gpt-oss-120b (200k tokens/day free).
-Worker (search summaries, RAG answers):   llama-3.1-8b-instant (500k tokens/day free).
-On daily-limit errors the reasoner falls back down `settings.reasoner_fallbacks`.
+Each role (reasoner / worker) has an ordered pool of `:free` models in `settings`. When a model is
+rate-limited upstream (free models often are), returns nothing, or errors, it goes on cooldown and
+the next model in the pool takes the call immediately instead of sleeping on the same one.
 """
 import asyncio
 import json
+import logging
 import re
+import time
 from typing import Literal, TypeVar
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ValidationError
-from tenacity import (
-    AsyncRetrying,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_random_exponential,
-)
 
 from app.config import settings
 
 T = TypeVar("T", bound=BaseModel)
 Role = Literal["reasoner", "worker"]
 
+log = logging.getLogger("app.llm")
+
+MAX_ATTEMPTS = 12
 _semaphore: asyncio.Semaphore | None = None
-_daily_limited: set[str] = set()  # models that hit their TPD/RPD cap this process
+_cooldown: dict[str, float] = {}  # model -> monotonic time before which it is skipped
+
+
+class BadResponse(RuntimeError):
+    """Model output is unusable: empty (hidden reasoning ate the budget) or leaked chain-of-thought."""
+
+
+# Chain-of-thought that some free reasoning endpoints emit as plain content instead of the reasoning field.
+_LEAKED_REASONING = re.compile(
+    r"\s*(we need to|we must|we should|let'?s (think|craft|write|draft|see)|the user (wants|asks|is asking)|"
+    r"okay,? (so|let)|first,? (i|we) (need|should|must))\b", re.IGNORECASE)
+
+
+def _check_output(model: str, text: str, max_tokens: int) -> None:
+    """Raises BadResponse for empty output, leaked reasoning, or runaway length (~4 chars/token)."""
+    if not text.strip():
+        raise BadResponse(f"{model} returned empty content")
+    if _LEAKED_REASONING.match(text):
+        raise BadResponse(f"{model} leaked chain-of-thought: {text[:60]!r}")
+    if len(text) > 5 * (max_tokens + settings.reasoning_headroom):
+        raise BadResponse(f"{model} ignored max_tokens ({len(text)} chars)")
+
+
+def _cool(model: str, exc: Exception) -> bool:
+    """Puts `model` on cooldown if `exc` is failover material; False means the error should propagate."""
+    wait = 0 if _is_daily_limit(exc) else _cooldown_for(exc)
+    if wait:
+        _cooldown[model] = time.monotonic() + wait
+        log.warning("llm failover: %s cooling down %ss (%s)", model, wait, str(exc)[:140])
+    return bool(wait)
 
 
 def _sem() -> asyncio.Semaphore:
@@ -36,47 +65,62 @@ def _sem() -> asyncio.Semaphore:
 
 
 def _is_daily_limit(exc: Exception) -> bool:
+    """Account-wide free-tier request cap — no model in the pool can help until it resets."""
     msg = str(exc).lower()
-    return "rate_limit" in msg and ("per day" in msg or "tpd" in msg or "rpd" in msg or "daily" in msg)
+    return "free-models-per-day" in msg or "per-day" in msg or "per day" in msg
 
 
-def _is_retryable(exc: Exception) -> bool:
-    if _is_daily_limit(exc):
-        return False  # retrying within the day won't help; trigger model fallback instead
+def _cooldown_for(exc: Exception) -> float:
+    """Seconds to skip a model after `exc`; 0 means the error is not model-failover material."""
     msg = str(exc).lower()
     status = getattr(exc, "status_code", None)
-    if status in (408, 409, 429, 500, 502, 503, 504):
-        return True
-    return any(k in msg for k in ("rate limit", "rate_limit", "timeout", "connection", "temporarily", "overloaded", "503", "429"))
+    if status == 429 or "rate limit" in msg or "rate-limited" in msg:
+        return settings.rate_limit_cooldown_s
+    if isinstance(exc, BadResponse) or "length limit" in msg:
+        return 300
+    if isinstance(exc, TypeError) and "nonetype" in msg:  # HTTP 200 with an error body and no `choices`
+        return settings.rate_limit_cooldown_s
+    if status in (400, 404, 422):  # model doesn't support a parameter / endpoint gone
+        return 600
+    if status in (408, 409, 500, 502, 503, 504) or any(
+            k in msg for k in ("timeout", "timed out", "connection", "temporarily", "overloaded",
+                               "upstream error", "resourceexhausted", "provider returned error")):
+        return 20
+    return 0
 
 
-def _model_for(role: Role) -> str:
-    if role == "worker":
-        return settings.model_worker
-    for m in [settings.model_reasoner, *settings.reasoner_fallbacks]:
-        if m not in _daily_limited:
-            return m
-    return settings.reasoner_fallbacks[-1]
+def _pool(role: Role) -> list[str]:
+    return settings.reasoner_models if role == "reasoner" else settings.worker_models
 
 
-def make_llm(role: Role, *, temperature: float = 0.2, max_tokens: int = 1024,
-             json_mode: bool = False, streaming: bool = False) -> ChatGroq:
-    model = _model_for(role)
-    extra: dict = {}
-    if "gpt-oss" in model:
-        extra["reasoning_effort"] = "low"
+async def _pick(role: Role) -> str:
+    """First model in the role's pool that is not cooling down; waits for the soonest if all are."""
+    pool = _pool(role)
+    while True:
+        now = time.monotonic()
+        for m in pool:
+            if _cooldown.get(m, 0) <= now:
+                return m
+        await asyncio.sleep(min(max(min(_cooldown[m] for m in pool) - now, 1), 30))
+
+
+def make_llm(model: str, *, temperature: float = 0.2, max_tokens: int = 1024,
+             json_mode: bool = False, streaming: bool = False) -> ChatOpenAI:
     model_kwargs: dict = {}
     if json_mode:
         model_kwargs["response_format"] = {"type": "json_object"}
-    return ChatGroq(
+    return ChatOpenAI(
         model=model,
-        api_key=settings.groq_api_key,
+        api_key=settings.openrouter_api_key,
+        base_url=settings.openrouter_base_url,
         temperature=temperature,
-        max_tokens=max_tokens,
+        max_tokens=max_tokens + settings.reasoning_headroom,
         streaming=streaming,
-        max_retries=0,  # tenacity owns retries
+        stream_usage=True,
+        max_retries=0,  # failover below owns retries
+        timeout=120,
         model_kwargs=model_kwargs,
-        **extra,
+        extra_body={"reasoning": {"effort": "low"}},
     )
 
 
@@ -87,24 +131,17 @@ def _tokens(msg: BaseMessage) -> int:
 
 async def _invoke(role: Role, messages: list[BaseMessage], **llm_kwargs) -> BaseMessage:
     last_exc: Exception | None = None
-    for _attempt_model in range(3):  # allows up to 2 daily-limit fallbacks for the reasoner
-        llm = make_llm(role, **llm_kwargs)
+    for _ in range(MAX_ATTEMPTS):
+        model = await _pick(role)
         try:
-            async for retry_ctx in AsyncRetrying(
-                retry=retry_if_exception(_is_retryable),
-                wait=wait_random_exponential(multiplier=2, min=5, max=60),
-                stop=stop_after_attempt(7),
-                reraise=True,
-            ):
-                with retry_ctx:
-                    async with _sem():
-                        return await llm.ainvoke(messages)
+            async with _sem():
+                msg = await make_llm(model, **llm_kwargs).ainvoke(messages)
+            _check_output(model, str(msg.content), llm_kwargs.get("max_tokens", 1024))
+            return msg
         except Exception as exc:
             last_exc = exc
-            if role == "reasoner" and _is_daily_limit(exc):
-                _daily_limited.add(llm.model_name)
-                continue
-            raise
+            if not _cool(model, exc):
+                raise
     raise last_exc  # type: ignore[misc]
 
 
@@ -147,11 +184,13 @@ async def stream_complete(role: Role, system: str, user: str, *, on_chunk,
                           temperature: float = 0.3, max_tokens: int = 1400) -> tuple[str, int]:
     """Streaming completion; awaits `on_chunk(text, reset=False)` per buffered chunk.
 
-    Retries the whole stream on rate limits (signalling `reset=True` so consumers clear
-    partial output); falls back to a non-streaming call as a last resort.
+    On a failure the model is put on cooldown and the whole stream restarts on the next model
+    (signalling `reset=True` so consumers clear partial output); falls back to a non-streaming
+    call as a last resort.
     """
-    for attempt in range(3):
-        llm = make_llm(role, temperature=temperature, max_tokens=max_tokens, streaming=True)
+    for attempt in range(4):
+        model = await _pick(role)
+        llm = make_llm(model, temperature=temperature, max_tokens=max_tokens, streaming=True)
         parts: list[str] = []
         tokens = 0
         buf = ""
@@ -165,6 +204,7 @@ async def stream_complete(role: Role, system: str, user: str, *, on_chunk,
                         parts.append(text)
                         buf += text
                         if len(buf) >= 48:
+                            _check_output(model, "".join(parts), max_tokens)  # vet before consumers see it
                             await on_chunk(buf)
                             buf = ""
                     usage = getattr(chunk, "usage_metadata", None)
@@ -173,12 +213,16 @@ async def stream_complete(role: Role, system: str, user: str, *, on_chunk,
             if buf:
                 await on_chunk(buf)
             full = "".join(parts)
+            _check_output(model, full, max_tokens)
             return full, tokens or max(1, len(full) // 4)
         except Exception as exc:
-            if attempt < 2 and _is_retryable(exc):
-                await asyncio.sleep(8 * (2 ** attempt))
+            if _cool(model, exc):
                 continue
             text, tokens = await complete(role, system, user, temperature=temperature, max_tokens=max_tokens)
             await on_chunk("", reset=True)
             await on_chunk(text)
             return text, tokens
+    text, tokens = await complete(role, system, user, temperature=temperature, max_tokens=max_tokens)
+    await on_chunk("", reset=True)
+    await on_chunk(text)
+    return text, tokens

@@ -16,7 +16,7 @@ START → planner → scheduler ⇒ Send() waves ⇒ {web_agent | code_agent | r
       → synthesizer → citation_checker → critic → (planner ↺ | finalizer) → END
 ```
 
-- **planner** (`openai/gpt-oss-120b` on Groq): structured-output DAG of 3–6 sub-questions with
+- **planner** (reasoner pool on OpenRouter): structured-output DAG of 3–6 sub-questions with
   `depends_on` edges; validated by topological sort; delta-only replans on critic feedback.
 - **scheduler** (pure Python): dispatches every ready sub-question as a parallel LangGraph
   `Send()`; dependency answers are injected into dependent agents' context; enforces the
@@ -44,8 +44,8 @@ event bus → SQLite (replayable) + SSE (live UI).
 
 ## Stack
 
-Python 3.13+/uv · LangGraph 1.x · langchain-groq (`gpt-oss-120b` reasoner, `llama-3.1-8b-instant`
-workers) · FastAPI + SSE · SQLite (aiosqlite) · Next.js 15 + React Flow + Tailwind · pysbd,
+Python 3.13+/uv · LangGraph 1.x · langchain-openai → OpenRouter free models (Gemma 4 / Qwen3.8 / Laguna XS 2.1 /
+Nemotron 3 Nano Omni pools with automatic failover) · FastAPI + SSE · SQLite (aiosqlite) · Next.js 15 + React Flow + Tailwind · pysbd,
 rank-bm25, ddgs, trafilatura · pytest.
 
 ## Setup
@@ -56,7 +56,7 @@ screenshots), Linux (sandbox uses `unshare`; degrades gracefully without it).
 ```bash
 # 1. backend
 cd backend
-cp .env.example .env        # add GROQ_API_KEY (free, no card: console.groq.com)
+cp .env.example .env        # add OPENROUTER_API_KEY (only :free models are used)
                             # optional: TAVILY_API_KEY (1000 free credits/mo: app.tavily.com)
 uv sync
 uv run python scripts/smoke_keys.py   # verify keys
@@ -109,13 +109,13 @@ exists (protocol in `eval/labels/rubric.md`). Smoke result (n=2, illustrative): 
 mean coverage vs baseline 10.5%; the baseline structurally cannot answer computational
 questions (no code agent).
 
-Free-tier note: a full 30-question × 3-system eval ≈ 90 runs ≈ 25–35 LLM calls each. On Groq's
-free tier (200k reasoner tokens/day) spread it over ~3 days, or it costs ~$2–3 on the paid tier.
+Free-tier note: a full 30-question × 3-system eval ≈ 90 runs ≈ 25–35 LLM calls each. OpenRouter's
+free tier allows 1000 free-model requests/day (with $10+ credit; 50/day otherwise), so spread it over a few days.
 
 ## Configuration (backend/.env or env vars)
 
-`GROQ_API_KEY` (required) · `TAVILY_API_KEY` (optional; ddgs fallback otherwise) ·
-`MODEL_REASONER` / `MODEL_WORKER` · `COVERAGE_THRESHOLD` (0.75) · `MAX_ITERATIONS` (2) ·
+`OPENROUTER_API_KEY` (required) · `TAVILY_API_KEY` (optional; ddgs fallback otherwise) ·
+`REASONER_MODELS` / `WORKER_MODELS` (JSON lists, `:free` ids only) · `COVERAGE_THRESHOLD` (0.75) · `MAX_ITERATIONS` (2) ·
 `MAX_SUBQUESTIONS` (6) · `TOKEN_BUDGET` (80000/run) · `LLM_CONCURRENCY` (2).
 
 ## Repo layout

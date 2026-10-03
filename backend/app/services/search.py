@@ -111,6 +111,91 @@ class DDGSProvider:
         return []
 
 
+def reconstruct_abstract(inverted: dict | None) -> str | None:
+    """Rebuild word sequence from OpenAlex inverted index {word: [position, ...]}."""
+    if not inverted:
+        return None
+    pairs: list[tuple[int, str]] = []
+    for word, positions in inverted.items():
+        for pos in positions:
+            pairs.append((pos, word))
+    pairs.sort(key=lambda x: x[0])
+    return " ".join(w for _, w in pairs)
+
+
+def _format_scholar_snippet(work: dict) -> str:
+    """Build a readable snippet from OpenAlex work metadata."""
+    parts: list[str] = []
+    # Authors (up to 5)
+    authorships = work.get("authorships") or []
+    authors = []
+    for a in authorships[:5]:
+        name = a.get("author", {}).get("display_name", "")
+        if name:
+            authors.append(name)
+    if authors:
+        parts.append(", ".join(authors) + (" et al." if len(authorships) > 5 else ""))
+    # Year
+    year = work.get("publication_year")
+    if year:
+        parts.append(f"({year})")
+    # Venue
+    loc = work.get("primary_location") or {}
+    source = loc.get("source") or {}
+    venue = source.get("display_name")
+    if venue:
+        parts.append(f"*{venue}*")
+    snippet = " ".join(parts)
+    # Append first part of abstract
+    abstract = reconstruct_abstract(work.get("abstract_inverted_index"))
+    if abstract:
+        snippet += "\n" + abstract[:400]
+    return snippet[:600]
+
+
+def _scholar_content(work: dict) -> str | None:
+    """Build searchable text from OpenAlex work: abstract + keywords."""
+    parts: list[str] = []
+    abstract = reconstruct_abstract(work.get("abstract_inverted_index"))
+    if abstract:
+        parts.append(f"Abstract: {abstract}")
+    keywords = work.get("keywords") or []
+    if keywords:
+        kw_strs = [k if isinstance(k, str) else k.get("keyword", str(k)) for k in keywords]
+        parts.append("Keywords: " + ", ".join(kw_strs))
+    return "\n\n".join(parts)[:2000] if parts else None
+
+
+class ScholarSearchProvider:
+    """Academic paper search via OpenAlex API (free, no key, 250M+ works)."""
+
+    name = "openalex"
+
+    async def search(self, query: str, k: int = 4) -> list[SearchResult]:
+        q = sanitize_query(query)
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                "https://api.openalex.org/works",
+                params={"search": q, "per_page": min(k, 25), "sort": "cited_by_count:desc"},
+                headers={"User-Agent": "mailto:research-swarm@example.org"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        results: list[SearchResult] = []
+        for work in (data.get("results") or [])[:k]:
+            doi = work.get("doi")  # full URL like https://doi.org/10.xxxx/xxxxx
+            url = doi or work.get("id") or ""
+            title = work.get("title") or "Untitled"
+            results.append(SearchResult(
+                title=title,
+                url=url,
+                snippet=_format_scholar_snippet(work),
+                content=_scholar_content(work),
+            ))
+        return results
+
+
 class MockSearchProvider:
     """Deterministic canned results — Phase 1 pipeline verification without network/quota."""
 
@@ -162,9 +247,11 @@ async def enrich_with_page_text(results: list[SearchResult], n: int = 2, char_li
     await asyncio.gather(*(fetch(r) for r in results[:n]))
 
 
-def get_search_provider(mock: bool = False) -> SearchProvider:
+def get_search_provider(mock: bool = False, scholarly: bool = False) -> SearchProvider:
     if mock:
         return MockSearchProvider()
+    if scholarly:
+        return ScholarSearchProvider()
     if settings.tavily_api_key:
         return TavilyProvider()
     return DDGSProvider()

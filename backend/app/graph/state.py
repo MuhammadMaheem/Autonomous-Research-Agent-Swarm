@@ -5,7 +5,7 @@ from typing import Annotated, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
-AgentType = Literal["web", "code", "rag"]
+AgentType = Literal["web", "code", "rag", "scholar"]
 
 CITE_RE = re.compile(r"\[(E\d+_\d+)\]")
 

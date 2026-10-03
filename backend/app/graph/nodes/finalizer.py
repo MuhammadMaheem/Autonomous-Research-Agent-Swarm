@@ -80,7 +80,7 @@ async def finalizer(state: SwarmState, config: RunnableConfig) -> dict:
     for i, eid in enumerate(order, start=1):
         e = evidence[eid]
         src = e.url or e.title or e.source_type
-        kind = {"web": "web", "code": "computation", "rag": "local corpus"}[e.source_type]
+        kind = {"web": "web", "code": "computation", "rag": "local corpus", "scholar": "scholarly paper"}[e.source_type]
         refs.append(f"{i}. {e.title or src} — {src} ({kind}, retrieved {e.retrieved_at:%Y-%m-%d})")
     footer = ["", "---", ""]
     if report:

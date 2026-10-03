@@ -34,7 +34,7 @@ const initial: LiveRunState = {
 
 type Action = { type: "event"; ev: TraceEvent } | { type: "connected" } | { type: "disconnected" };
 
-const AGENT_NODES = new Set(["web_agent", "code_agent", "rag_agent"]);
+const AGENT_NODES = new Set(["web_agent", "code_agent", "rag_agent", "scholar_agent"]);
 // draft_token / verdict spam is summarized in dedicated panels, not the raw feed
 const FEED_SKIP = new Set(["draft_token", "verdict"]);
 
